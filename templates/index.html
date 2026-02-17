@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing Email Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #da190b;
+        }
+        
+        .result-box {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            animation: slideIn 0.5s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .result-phishing {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            border: 3px solid #c92a2a;
+        }
+        
+        .result-legitimate {
+            background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+            color: white;
+            border: 3px solid #2b8a3e;
+        }
+        
+        .result-error {
+            background: linear-gradient(135deg, #ffa94d 0%, #ff922b 100%);
+            color: white;
+            border: 3px solid #e8590c;
+        }
+        
+        .result-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .result-label {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .confidence {
+            font-size: 18px;
+            margin-top: 15px;
+        }
+        
+        .confidence-bar {
+            background: rgba(255,255,255,0.3);
+            height: 30px;
+            border-radius: 15px;
+            margin: 15px 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: white;
+            border-radius: 15px;
+            transition: width 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .samples {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .samples h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .sample-btn {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .sample-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ Phishing Email Detector</h1>
+        <p class="subtitle">AI-powered email security analysis</p>
+        
+        <!-- Sample Email Buttons -->
+        <div class="samples">
+            <h3>📧 Try Sample Emails:</h3>
+            <button class="sample-btn" onclick="loadPhishing()">Phishing Example</button>
+            <button class="sample-btn" onclick="loadLegitimate()">Legitimate Example</button>
+            <button class="sample-btn" onclick="loadSuspicious()">Suspicious Example</button>
+        </div>
+        
+        <!-- Form -->
+        <form method="POST" action="/predict">
+            <textarea 
+                name="email" 
+                id="emailText"
+                placeholder="Paste email content here to check if it's a phishing attempt...
+
+Example:
+URGENT! Your account has been compromised. Click here immediately: http://fake-bank.com"
+                required>{{ email_text if email_text else '' }}</textarea>
+            
+            <div class="button-group">
+                <button type="submit" class="btn-primary">🔍 Check Email</button>
+                <button type="button" class="btn-secondary" onclick="clearText()">🗑️ Clear</button>
+            </div>
+        </form>
+        
+        <!-- Results Section -->
+        {% if label %}
+        <div class="result-box 
+            {% if 'PHISHING' in label %}result-phishing
+            {% elif 'LEGITIMATE' in label %}result-legitimate
+            {% else %}result-error{% endif %}">
+            
+            <div class="result-icon">
+                {% if 'PHISHING' in label %}
+                    ⚠️
+                {% elif 'LEGITIMATE' in label %}
+                    ✅
+                {% else %}
+                    ❌
+                {% endif %}
+            </div>
+            
+            <div class="result-label">{{ label }}</div>
+            
+            {% if confidence and confidence > 0 %}
+            <div class="confidence">
+                <strong>Confidence Level: {{ confidence }}%</strong>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" style="width: {{ confidence }}%;">
+                        {{ confidence }}%
+                    </div>
+                </div>
+                
+                {% if confidence >= 80 %}
+                    <p><strong>High Confidence:</strong> Strong indicators detected</p>
+                {% elif confidence >= 60 %}
+                    <p><strong>Medium Confidence:</strong> Some indicators present</p>
+                {% else %}
+                    <p><strong>Low Confidence:</strong> Weak or mixed signals</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+            <p>⚠️ This is an educational tool. Always verify suspicious emails with official sources.</p>
+            <p style="margin-top: 10px;">Powered by Machine Learning | Flask + Python</p>
+        </div>
+    </div>
+    
+    <script>
+        // Sample emails
+        const samples = {
+            phishing: `URGENT: Your Bank Account Security Alert!
+
+Dear Valued Customer,
+
+We have detected suspicious activity on your account. Your account will be LOCKED in 24 hours unless you verify your identity immediately.
+
+Click here to verify: http://secure-bank-verify.xyz/login
+
+Please provide:
+- Full Name
+- Account Number  
+- Social Security Number
+- Password
+
+Failure to respond will result in permanent account suspension.
+
+Security Department
+Your Bank`,
+
+            legitimate: `Team Meeting - Project Update
+
+Hi Team,
+
+Hope you're all doing well! 
+
+Just a reminder about our weekly project meeting:
+- Date: Tomorrow, 3:00 PM
+- Location: Conference Room B
+- Duration: 1 hour
+
+Agenda:
+1. Sprint review
+2. Current blockers
+3. Next week's priorities
+
+Please come prepared with your updates.
+
+Best regards,
+John Smith
+Project Manager`,
+
+            suspicious: `🎉 CONGRATULATIONS! You're Our Lucky Winner! 🎉
+
+You have been selected to receive a $1,000 Walmart Gift Card!
+
+Click below to claim your prize NOW:
+>>> http://win-free-giftcard.xyz/claim <<<
+
+This offer expires in 2 HOURS!
+
+No purchase necessary. Limited time only.
+
+Click here before it's too late!`
+        };
+        
+        function loadPhishing() {
+            document.getElementById('emailText').value = samples.phishing;
+        }
+        
+        function loadLegitimate() {
+            document.getElementById('emailText').value = samples.legitimate;
+        }
+        
+        function loadSuspicious() {
+            document.getElementById('emailText').value = samples.suspicious;
+        }
+        
+        function clearText() {
+            if (confirm('Clear the email text?')) {
+                document.getElementById('emailText').value = '';
+                document.getElementById('emailText').focus();
+            }
+        }
+        
+        // Auto-focus textarea on load
+        window.onload = function() {
+            document.getElementById('emailText').focus();
+        };
+    </script>
+</body>
+</html>
